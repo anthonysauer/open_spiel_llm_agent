@@ -24,7 +24,7 @@ import pyspiel
 
 
 def _alpha_beta(state, depth, alpha, beta, value_function,
-                maximizing_player_id):
+                maximizing_player_id, return_all_actions=False):
   """An alpha-beta algorithm.
 
   Implements a min-max algorithm with alpha-beta pruning.
@@ -63,6 +63,7 @@ def _alpha_beta(state, depth, alpha, beta, value_function,
 
   player = state.current_player()
   best_action = -1
+  best_actions = []
   if player == maximizing_player_id:
     value = -float("inf")
     for action in state.legal_actions():
@@ -73,9 +74,14 @@ def _alpha_beta(state, depth, alpha, beta, value_function,
       if child_value > value:
         value = child_value
         best_action = action
+        best_actions = [action]
+      elif return_all_actions and child_value == value:
+        best_actions.append(action)
       alpha = max(alpha, value)
       if alpha >= beta:
         break  # beta cut-off
+    if return_all_actions:
+      return value, best_action, best_actions
     return value, best_action
   else:
     value = float("inf")
@@ -97,7 +103,8 @@ def alpha_beta_search(game,
                       state=None,
                       value_function=None,
                       maximum_depth=30,
-                      maximizing_player_id=None):
+                      maximizing_player_id=None,
+                      return_all_actions=False):
   """Solves deterministic, 2-players, perfect-information 0-sum game.
 
   For small games only! Please use keyword arguments for optional arguments.
@@ -146,7 +153,8 @@ def alpha_beta_search(game,
       alpha=-float("inf"),
       beta=float("inf"),
       value_function=value_function,
-      maximizing_player_id=maximizing_player_id)
+      maximizing_player_id=maximizing_player_id,
+      return_all_actions=return_all_actions)
 
 
 def expectiminimax(state, depth, value_function, maximizing_player_id):

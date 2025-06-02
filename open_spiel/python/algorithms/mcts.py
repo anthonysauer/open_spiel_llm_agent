@@ -54,6 +54,7 @@ class RandomRolloutEvaluator(Evaluator):
   def evaluate(self, state):
     """Returns evaluation on given state."""
     result = None
+    data = ""
     for _ in range(self.n_rollouts):
       working_state = state.clone()
       while not working_state.is_terminal():
@@ -63,11 +64,19 @@ class RandomRolloutEvaluator(Evaluator):
           action = self._random_state.choice(action_list, p=prob_list)
         else:
           action = self._random_state.choice(working_state.legal_actions())
+        data += working_state.action_to_string(working_state.current_player(), action) + "\n"
         working_state.apply_action(action)
+        data += str(working_state) + "\n"
       returns = np.array(working_state.returns())
+      if returns[0] == 1.0:
+        data += "x wins in random playout\n"
+      elif returns[1] == 1.0:
+        data += "o wins in random playout\n"
+      else:
+        data += "draw in random playout\n"
       result = returns if result is None else result + returns
 
-    return result / self.n_rollouts
+    return result / self.n_rollouts, data
 
   def prior(self, state):
     """Returns equal probability for all actions."""
@@ -346,7 +355,7 @@ class MCTSBot(pyspiel.Bot):
 
     return visit_path, working_state
 
-  def mcts_search(self, state):
+  def mcts_search(self, state, return_data=False):
     """A vanilla Monte-Carlo Tree Search algorithm.
 
     This algorithm searches the game tree from the given state.
@@ -396,16 +405,34 @@ class MCTSBot(pyspiel.Bot):
       The most visited move from the root node.
     """
     root = SearchNode(None, state.current_player(), 1)
+    data = ""
+    data += "Start state: \n"
+    data += str(state) + "\n"
+
     for _ in range(self.max_simulations):
       visit_path, working_state = self._apply_tree_policy(root, state)
+      if visit_path[-1].action is not None:
+        data += "\nExploring move sequence: " + str([state.action_to_string(node.player, node.action) for node in visit_path[1:]])
+        data += "\nResulting state: \n"
+        data += str(working_state) + "\n"
       if working_state.is_terminal():
         returns = working_state.returns()
         visit_path[-1].outcome = returns
         solved = self.solve
+
+        if returns[0] == 1.0:
+          data += "x wins\n"
+        elif returns[1] == 1.0:
+          data += "o wins\n"
+        else:
+          data += "draw\n"
       else:
-        returns = self.evaluator.evaluate(working_state)
+        data += "Evaluating state with random playout: \n"
+        returns, eval_data = self.evaluator.evaluate(working_state)
+        data += eval_data
         solved = False
 
+      data += "Updating move rewards: \n"
       while visit_path:
         # For chance nodes, walk up the tree to find the decision-maker.
         decision_node_idx = -1
@@ -413,12 +440,30 @@ class MCTSBot(pyspiel.Bot):
           decision_node_idx -= 1
         # Chance node targets are for the respective decision-maker.
         target_return = returns[visit_path[decision_node_idx].player]
-        node = visit_path.pop()
+
+        node = visit_path[-1]
+        current_reward = round(node.total_reward, 4)
+        return_reward = round(target_return, 4)
+        if visit_path[0].player != node.player:
+          if current_reward != 0:
+            current_reward *= -1
+          if return_reward != 0:
+            return_reward *= -1
+        action = None
+        if node.action is not None:
+          action = str([state.action_to_string(node.player, node.action) for node in visit_path[1:]])
+          data += (action + ": " + str(current_reward) + " + " + str(return_reward) +
+                " = " + str(current_reward + return_reward) + "\n")
+
         node.total_reward += target_return
         node.explore_count += 1
+        visit_path.pop()
 
         if solved and node.children:
           player = node.children[0].player
+          player_str = 'x'
+          if player == 1:
+            player_str = 'o'
           if player == pyspiel.PlayerId.CHANCE:
             # Only back up chance nodes if all have the same outcome.
             # An alternative would be to back up the weighted average of
@@ -439,12 +484,21 @@ class MCTSBot(pyspiel.Bot):
                 all_solved = False
               elif best is None or child.outcome[player] > best.outcome[player]:
                 best = child
-            if (best is not None and
-                (all_solved or best.outcome[player] == self.max_utility)):
-              node.outcome = best.outcome
+            if best is not None:
+              if best.outcome[player] == self.max_utility:
+                if action is not None:
+                  data += action + " is a winning move sequence for " + player_str + "\n"
+                node.outcome = best.outcome
+              elif all_solved:
+                if action is not None:
+                  data += ("All possible moves starting from move sequence " + action + " have been solved. " +
+                        "This move sequence has a maximum reward of " + str(best.outcome[player]) + " for " + player_str + "\n")
+                node.outcome = best.outcome
             else:
               solved = False
       if root.outcome is not None:
         break
 
+    if return_data:
+      return root, data
     return root
