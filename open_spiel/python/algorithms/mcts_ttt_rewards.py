@@ -29,19 +29,19 @@ def extract_xml_answer(text: str) -> str:
     return answer.strip()
 
 
-# Strict format of overall response
-def strict_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r".*?<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n.*?"
-    matches = [re.match(pattern, c) for c in completions]
-    return [0.5 if match else 0.0 for match in matches]
+# # Strict format of overall response
+# def strict_format_reward_func(completions, **kwargs) -> list[float]:
+#     """Reward function that checks if the completion has a specific format."""
+#     pattern = r".*?<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n.*?"
+#     matches = [re.match(pattern, c) for c in completions]
+#     return [0.5 if match else 0.0 for match in matches]
 
 
 # Soft format of overall response
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r".*?<reasoning>.*?</reasoning>\s*<answer>.*?</answer>.*?"
-    matches = [re.match(pattern, c) for c in completions]
+    pattern = r"<reasoning>\n[\S\s]*<\/reasoning>\n<answer>\n.*?\n<\/answer>\n"
+    matches = [re.search(pattern, c) for c in completions]
     return [0.5 if match else 0.0 for match in matches]
 
 
@@ -75,8 +75,8 @@ def xmlcount_reward_func(completions, **kwargs) -> list[float]:
 # Soft reasoning formatting
 def soft_reasoning_format_reward_func(completions, **kwargs) -> list[float]:
     extracted_reasonings = [extract_xml_reasoning(c) for c in completions]
-    pattern = r".*?[sS]tart.*\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\n*(?:[Ee]xploring.*\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\n(?:(?:(?:draw)|(?:[xo] wins?)\n)|(?:.*playouts.*\n(?:\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\s*->\s*(?:(?:draw)|(?:[xo] wins?))\n)+\s*))(?:[\S\s])??)+[\S\s]*"
-    return [1.0 if re.match(pattern, r) else 0.0 for r in extracted_reasonings]
+    pattern = r"[sS]tart.*\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\n*(?:[Ee]xploring.*\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\n(?:(?:(?:draw)|(?:[xo] wins?)\n)|(?:.*playouts.*\n(?:\[(?:[xo]\([0-2]\s*,[0-2]\)(?:;\s*)?)+\]\s*->\s*(?:(?:draw)|(?:[xo] wins?))\n)+\s*))(?:[\S\s])??)+[\S\s]*"
+    return [1.0 if re.search(pattern, r) else 0.0 for r in extracted_reasonings]
 
 
 # Final move is in the strict format, e.g. x(0,1)
