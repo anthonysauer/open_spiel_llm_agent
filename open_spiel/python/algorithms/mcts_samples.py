@@ -86,7 +86,7 @@ def main():
         UCT_C,
         max_simulations=10,
         solve=True,
-        evaluator=mcts.RandomRolloutEvaluator(n_rollouts=1))
+        evaluator=mcts.RandomRolloutEvaluator(n_rollouts=4))
 
     for state, actions in all_states_with_actions:
         example = ""
@@ -101,12 +101,11 @@ def main():
 
         if best.outcome is None or best.outcome[best.player] == -1:
             example += "No explored moves are a winning move for " + player + ".\n"
-            example += "Choosing move with highest reward that is not a losing move for " + player + ": " + best_move + "\n"
+            example += "Choosing move with highest reward for " + player + ": " + best_move + "\n"
         elif best.outcome[best.player] == 1:
             example += "Choosing move that is proven to win for " + player + ": " + best_move + "\n"
         else:
-            example += "Explored moves at best resulted in a draw for " + player + ".\n"
-            example += "Choosing move that results in draw that was explored the most: " + best_move + "\n"
+            example += "Explored moves at best resulted in a draw.\n"
 
         optimal_moves, optimal_outcome = get_optimal_moves(game, state)
 

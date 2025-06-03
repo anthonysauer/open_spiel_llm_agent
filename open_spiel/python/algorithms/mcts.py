@@ -55,8 +55,11 @@ class RandomRolloutEvaluator(Evaluator):
     """Returns evaluation on given state."""
     result = None
     data = ""
-    for _ in range(self.n_rollouts):
+    explored = set()
+    i = 0
+    while len(explored) < self.n_rollouts and i < self.n_rollouts * 2:
       working_state = state.clone()
+      actions = []
       while not working_state.is_terminal():
         if working_state.is_chance_node():
           outcomes = working_state.chance_outcomes()
@@ -64,19 +67,26 @@ class RandomRolloutEvaluator(Evaluator):
           action = self._random_state.choice(action_list, p=prob_list)
         else:
           action = self._random_state.choice(working_state.legal_actions())
-        data += working_state.action_to_string(working_state.current_player(), action) + "\n"
+        actions.append(working_state.action_to_string(working_state.current_player(), action))
         working_state.apply_action(action)
-        data += str(working_state) + "\n"
+
+      actions_str = "[" + "; ".join(actions) + "]"
+      i += 1
+      if actions_str in explored:
+        continue
+      explored.add(actions_str)
+
+      data += actions_str + " -> "
       returns = np.array(working_state.returns())
       if returns[0] == 1.0:
-        data += "x wins in random playout\n"
+        data += "x wins\n"
       elif returns[1] == 1.0:
-        data += "o wins in random playout\n"
+        data += "o wins\n"
       else:
-        data += "draw in random playout\n"
+        data += "draw\n"
       result = returns if result is None else result + returns
 
-    return result / self.n_rollouts, data
+    return result / len(explored), data
 
   def prior(self, state):
     """Returns equal probability for all actions."""
@@ -199,6 +209,10 @@ class SearchNode(object):
 
   def __str__(self):
     return self.to_str(None)
+
+
+def _print_move_sequence(state, sequence):
+  return "[" + "; ".join([state.action_to_string(node.player, node.action) for node in sequence]) + "]"
 
 
 class MCTSBot(pyspiel.Bot):
@@ -406,15 +420,20 @@ class MCTSBot(pyspiel.Bot):
     """
     root = SearchNode(None, state.current_player(), 1)
     data = ""
-    data += "Start state: \n"
-    data += str(state) + "\n"
+
+    start_moves = []
+    prev_state = state.get_game().new_initial_state()
+    for prev_action in state.history():
+      start_moves.append(prev_state.action_to_string(prev_state.current_player(), prev_action))
+      prev_state.apply_action(prev_action)
+
+    data += "Start state: "
+    data += "[" + "; ".join(start_moves) + "]" + "\n"
 
     for _ in range(self.max_simulations):
       visit_path, working_state = self._apply_tree_policy(root, state)
       if visit_path[-1].action is not None:
-        data += "\nExploring move sequence: " + str([state.action_to_string(node.player, node.action) for node in visit_path[1:]])
-        data += "\nResulting state: \n"
-        data += str(working_state) + "\n"
+        data += "\nExploring move sequence: " + _print_move_sequence(state, visit_path[1:]) + "\n"
       if working_state.is_terminal():
         returns = working_state.returns()
         visit_path[-1].outcome = returns
@@ -427,12 +446,12 @@ class MCTSBot(pyspiel.Bot):
         else:
           data += "draw\n"
       else:
-        data += "Evaluating state with random playout: \n"
         returns, eval_data = self.evaluator.evaluate(working_state)
-        data += eval_data
         solved = False
+        if visit_path[-1].action is not None:
+          data += "Evaluating state with random playouts:\n"
+          data += eval_data
 
-      data += "Updating move rewards: \n"
       while visit_path:
         # For chance nodes, walk up the tree to find the decision-maker.
         decision_node_idx = -1
@@ -442,18 +461,10 @@ class MCTSBot(pyspiel.Bot):
         target_return = returns[visit_path[decision_node_idx].player]
 
         node = visit_path[-1]
-        current_reward = round(node.total_reward, 4)
-        return_reward = round(target_return, 4)
-        if visit_path[0].player != node.player:
-          if current_reward != 0:
-            current_reward *= -1
-          if return_reward != 0:
-            return_reward *= -1
+
         action = None
         if node.action is not None:
-          action = str([state.action_to_string(node.player, node.action) for node in visit_path[1:]])
-          data += (action + ": " + str(current_reward) + " + " + str(return_reward) +
-                " = " + str(current_reward + return_reward) + "\n")
+          action = _print_move_sequence(state, visit_path[1:])
 
         node.total_reward += target_return
         node.explore_count += 1
@@ -491,8 +502,13 @@ class MCTSBot(pyspiel.Bot):
                 node.outcome = best.outcome
               elif all_solved:
                 if action is not None:
+                  best_outcome = "draw"
+                  if best.outcome[player] == 1.0:
+                      best_outcome = "win"
+                  elif best.outcome[player] == -1.0:
+                      best_outcome = "loss"
                   data += ("All possible moves starting from move sequence " + action + " have been solved. " +
-                        "This move sequence has a maximum reward of " + str(best.outcome[player]) + " for " + player_str + "\n")
+                        "The best outcome is a " + best_outcome + " for " + player_str + "\n")
                 node.outcome = best.outcome
             else:
               solved = False

@@ -102,7 +102,7 @@ def main():
 
     grpo_dataset = get_mcts_ttt_grpo()
 
-    max_prompt_length = 512
+    max_prompt_length = 350
 
     training_args = GRPOConfig(
         learning_rate=1e-6,
