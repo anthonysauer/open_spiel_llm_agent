@@ -105,16 +105,16 @@ def main():
     max_prompt_length = 350
 
     training_args = GRPOConfig(
-        learning_rate=1e-6,
+        learning_rate=5e-6,
         # lr_scheduler_type = "cosine",
         optim="paged_adamw_8bit",
         logging_steps=10,
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=6,
         gradient_accumulation_steps=4,  # Increase to 4 for smoother training
-        num_generations=4,  # Decrease if out of memory
+        num_generations=6,  # Decrease if out of memory
         max_prompt_length=max_prompt_length,
         max_completion_length=max_seq_length - max_prompt_length,
-        num_train_epochs=1,
+        num_train_epochs=2,
         # max_steps = 250,
         save_steps=250,
         # max_grad_norm = 0.1,
@@ -130,7 +130,7 @@ def main():
             strict_format_reward_func,
             soft_format_reward_func,
             xmlcount_reward_func,
-            strict_reasoning_format_reward_func,
+            # strict_reasoning_format_reward_func,
             soft_reasoning_format_reward_func,
             move_format_reward_func,
             mcts_reward_func,
