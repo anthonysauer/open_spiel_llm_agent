@@ -2,6 +2,12 @@ import numpy as np
 import pyspiel
 import re
 
+from transformers.utils import logging
+
+# Set-up logging
+logging.set_verbosity_info()
+logger = logging.get_logger("transformers")
+
 # RegEx for parsing reasoning
 single_move_pattern = r"[xo]\(\d\s*,\d\)"
 state_pattern = r"\[(?:" + single_move_pattern + r"(?:;\s*)?)+\]"
@@ -218,6 +224,13 @@ def mcts_individual_rewards(completions, current_moves):
     for count in valid_playout_counts:
         playout_valid_moves_rewards.append(count[0])
         playout_terminal_rewards.append(count[1])
+
+    logger.info("MCTS reward breakdown:")
+    logger.info("Start state reward: {}".format(start_state_rewards[0]))
+    logger.info("Explores valid moves reward: {}".format(explores_valid_moves_rewards[0]))
+    logger.info("Playouts valid moves reward: {}".format(playout_valid_moves_rewards[0]))
+    logger.info("Explores terminal states reward: {}".format(explored_terminal_rewards[0]))
+    logger.info("Playouts terminal states reward: {}".format(playout_terminal_rewards[0]))
 
     return start_state_rewards, explores_valid_moves_rewards, explored_terminal_rewards, playout_valid_moves_rewards, playout_terminal_rewards
 
