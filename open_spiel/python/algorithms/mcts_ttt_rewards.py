@@ -1,6 +1,7 @@
 import numpy as np
 import pyspiel
 import re
+import wandb
 
 from transformers.utils import logging
 
@@ -225,12 +226,13 @@ def mcts_individual_rewards(completions, current_moves):
         playout_valid_moves_rewards.append(count[0])
         playout_terminal_rewards.append(count[1])
 
-    logger.info("MCTS reward breakdown:")
-    logger.info("Start state reward: {}".format(start_state_rewards[0]))
-    logger.info("Explores valid moves reward: {}".format(explores_valid_moves_rewards[0]))
-    logger.info("Playouts valid moves reward: {}".format(playout_valid_moves_rewards[0]))
-    logger.info("Explores terminal states reward: {}".format(explored_terminal_rewards[0]))
-    logger.info("Playouts terminal states reward: {}".format(playout_terminal_rewards[0]))
+    wandb.log({
+        "start_state_reward_func": sum(start_state_rewards) / len(start_state_rewards),
+        "explores_valid_moves_reward_func": sum(explores_valid_moves_rewards) / len(explores_valid_moves_rewards),
+        "playouts_valid_moves_func": sum(playout_valid_moves_rewards) / len(playout_valid_moves_rewards),
+        "explores_terminal_reward_func": sum(explored_terminal_rewards) / len(explored_terminal_rewards),
+        "playouts_terminal_reward_func": sum(playout_terminal_rewards) / len(playout_terminal_rewards),
+    })
 
     return start_state_rewards, explores_valid_moves_rewards, explored_terminal_rewards, playout_valid_moves_rewards, playout_terminal_rewards
 

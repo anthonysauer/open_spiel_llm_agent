@@ -127,7 +127,7 @@ def main():
         model=model,
         processing_class=tokenizer,
         reward_funcs=[
-            strict_format_reward_func,
+            # strict_format_reward_func,
             soft_format_reward_func,
             xmlcount_reward_func,
             # strict_reasoning_format_reward_func,
